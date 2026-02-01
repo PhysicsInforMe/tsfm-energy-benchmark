@@ -1,0 +1,61 @@
+# Configurazione Dataset
+data:
+  source: "ercot"
+  years: [2020, 2021, 2022, 2023, 2024]
+  target_column: "ERCOT"
+  frequency: "h"
+  data_dir: "data/raw"
+
+  split:
+    train_end: "2022-12-31"
+    val_end: "2023-06-30"
+    test_end: "2024-06-30"
+
+# Configurazione Modelli
+models:
+  chronos_bolt:
+    enabled: true
+    size: "base"
+    device: "cuda"
+
+  chronos_2:
+    enabled: true
+    device: "cuda"
+
+  lag_llama:
+    enabled: true
+    context_length: 512
+
+  seasonal_naive:
+    enabled: true
+    seasonality: 168  # settimanale
+
+  arima:
+    enabled: true
+    order: [2, 1, 2]
+    seasonal_order: [1, 1, 1, 24]
+
+# Configurazione Benchmark
+benchmark:
+  prediction_horizons: [24, 168, 720]
+  context_lengths: [512, 1024]
+  num_samples: 100
+
+  rolling:
+    enabled: true
+    step_size: 24
+    num_windows: 30
+
+# Configurazione Metriche
+metrics:
+  - mase
+  - crps
+  - wql
+  - mae
+  - rmse
+
+# Output
+output:
+  results_dir: "results"
+  save_predictions: true
+  save_figures: true
