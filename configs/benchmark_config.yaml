@@ -35,6 +35,10 @@ models:
     order: [2, 1, 2]
     seasonal_order: [1, 1, 1, 24]
 
+  prophet:
+    enabled: false  # requires: pip install prophet
+    max_train_hours: 8760
+
 # Configurazione Benchmark
 benchmark:
   prediction_horizons: [24, 168, 720]

@@ -22,6 +22,7 @@ from energy_benchmark.models import (
     ChronosBoltModel,
     Chronos2Model,
     LagLlamaModel,
+    ProphetModel,
 )
 from energy_benchmark.evaluation import BenchmarkRunner
 from energy_benchmark.visualization import (
@@ -78,6 +79,13 @@ def _build_models(model_cfg: dict, force_cpu: bool = False) -> list:
             LagLlamaModel(
                 context_length=model_cfg["lag_llama"].get("context_length", 512),
                 device=device or "cuda",
+            )
+        )
+
+    if model_cfg.get("prophet", {}).get("enabled", False):
+        models.append(
+            ProphetModel(
+                max_train_hours=model_cfg["prophet"].get("max_train_hours", 8760),
             )
         )
 
