@@ -117,7 +117,8 @@ class TestChronosBolt:
         pred_len = 24
 
         mock_pipeline = MagicMock()
-        fake_output = torch.randn(1, 3, pred_len)
+        # Chronos-Bolt returns (batch, 9_quantiles, pred_len)
+        fake_output = torch.randn(1, 9, pred_len).abs() + 40000
         mock_pipeline.predict.return_value = fake_output
 
         mock_bolt_cls = MagicMock()
@@ -156,14 +157,16 @@ class TestChronos2:
         num_samples = 50
 
         mock_pipeline = MagicMock()
-        fake_samples = torch.randn(1, num_samples, pred_len)
-        mock_pipeline.predict.return_value = fake_samples
+        # Chronos-2 returns a list of tensors:
+        # each with shape (n_variates, n_quantiles, pred_len)
+        fake_quantiles = torch.randn(1, 21, pred_len).abs() + 40000
+        mock_pipeline.predict.return_value = [fake_quantiles]
 
         mock_pipeline_cls = MagicMock()
         mock_pipeline_cls.from_pretrained.return_value = mock_pipeline
 
         mock_chronos = ModuleType("chronos")
-        mock_chronos.ChronosPipeline = mock_pipeline_cls
+        mock_chronos.Chronos2Pipeline = mock_pipeline_cls
 
         with patch.dict(sys.modules, {"chronos": mock_chronos}):
             from energy_benchmark.models.chronos2 import Chronos2Model

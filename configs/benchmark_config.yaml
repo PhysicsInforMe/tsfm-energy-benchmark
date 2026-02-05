@@ -1,29 +1,29 @@
 # Configurazione Dataset
 data:
   source: "ercot"
-  years: [2020, 2021, 2022, 2023, 2024]
+  years: [2023, 2024]
   target_column: "ERCOT"
   frequency: "h"
   data_dir: "data/raw"
 
   split:
-    train_end: "2022-12-31"
-    val_end: "2023-06-30"
-    test_end: "2024-06-30"
+    train_end: "2023-12-31"
+    val_end: "2024-03-31"
+    test_end: "2024-12-31"
 
 # Configurazione Modelli
 models:
   chronos_bolt:
     enabled: true
-    size: "base"
-    device: "cuda"
+    size: "small"
+    device: "cpu"
 
   chronos_2:
     enabled: true
-    device: "cuda"
+    device: "cpu"
 
   lag_llama:
-    enabled: true
+    enabled: false
     context_length: 512
 
   seasonal_naive:

@@ -64,10 +64,10 @@ class ChronosBoltModel(ForecastModel):
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """Generate probabilistic forecast via quantile output.
 
-        Chronos-Bolt natively produces quantile forecasts.  We request the
-        10th, 50th and 90th percentiles, use the median as the point
-        forecast, and synthesise approximate samples from a Gaussian
-        fitted to the inter-quantile range.
+        Chronos-Bolt natively produces 9 quantiles (0.1, 0.2, ..., 0.9).
+        We use the median (index 4, q0.5) as the point forecast, and
+        synthesise approximate samples from a Gaussian fitted to the
+        inter-quantile range (q0.1 / q0.9).
         """
         if not self._is_fitted:
             raise RuntimeError("Call fit() before predict()")
@@ -76,20 +76,19 @@ class ChronosBoltModel(ForecastModel):
             context.values, dtype=torch.float32
         ).unsqueeze(0)  # batch dim
 
-        quantile_levels = [0.1, 0.5, 0.9]
         forecast = self.pipeline.predict(
             context_tensor,
             prediction_length=prediction_length,
-            quantile_levels=quantile_levels,
         )
-        # forecast shape: (batch, num_quantiles, prediction_length)
+        # forecast shape: (batch, 9, prediction_length)
+        # 9 quantiles: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         forecast = forecast[0]  # remove batch dim
 
-        point_forecast = forecast[1].numpy()  # median (q0.5)
+        q10 = forecast[0].numpy()   # index 0 → q0.1
+        point_forecast = forecast[4].numpy()  # index 4 → q0.5 (median)
+        q90 = forecast[8].numpy()   # index 8 → q0.9
 
         # Approximate samples from the quantile spread
-        q10 = forecast[0].numpy()
-        q90 = forecast[2].numpy()
         std_approx = np.maximum((q90 - q10) / 2.56, 1e-6)
         samples = np.random.normal(
             loc=point_forecast,

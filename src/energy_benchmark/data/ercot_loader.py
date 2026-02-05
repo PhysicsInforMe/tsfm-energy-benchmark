@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -192,15 +193,28 @@ class ERCOTLoader:
                 "Fetching ERCOT %d data from EIA API (offset=%d)", year, offset
             )
 
-            response = requests.get(
-                EIA_API_URL, params=params, timeout=self.timeout
-            )
-            response.raise_for_status()
+            # Retry with exponential backoff on rate-limit (429) errors
+            for attempt in range(5):
+                response = requests.get(
+                    EIA_API_URL, params=params, timeout=self.timeout
+                )
+                if response.status_code == 429:
+                    wait = 2 ** attempt * 10  # 10, 20, 40, 80, 160 seconds
+                    logger.warning(
+                        "Rate limited (429). Waiting %ds before retry %d/5...",
+                        wait, attempt + 1,
+                    )
+                    time.sleep(wait)
+                    continue
+                response.raise_for_status()
+                break
+            else:
+                response.raise_for_status()  # raise the last 429
 
             payload = response.json()
             resp_body = payload.get("response", {})
             data = resp_body.get("data", [])
-            total = resp_body.get("total", 0)
+            total = int(resp_body.get("total", 0))
 
             if not data:
                 break
