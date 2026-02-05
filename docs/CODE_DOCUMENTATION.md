@@ -53,15 +53,15 @@ tests/                  35 test unitari (pytest)
 **Flusso dei dati**:
 
 ```
-ERCOT ZIP (web) → ERCOTLoader → pd.Series → preprocess_series()
-                                     ↓
-                              split (train/val/test)
-                                     ↓
-                    ForecastModel.fit(train) → .predict(context)
-                                     ↓
-                       BenchmarkRunner (rolling windows)
-                                     ↓
-                    BenchmarkResults → DataFrame CSV + Figures
+EIA Open Data API → ERCOTLoader → pd.Series → preprocess_series()
+                                       ↓
+                                split (train/val/test)
+                                       ↓
+                      ForecastModel.fit(train) → .predict(context)
+                                       ↓
+                         BenchmarkRunner (rolling windows)
+                                       ↓
+                      BenchmarkResults → DataFrame CSV + Figures
 ```
 
 ---
@@ -73,39 +73,34 @@ ERCOT ZIP (web) → ERCOTLoader → pd.Series → preprocess_series()
 ### 2.1 ERCOTLoader
 
 **File**: `ercot_loader.py`
-**Scopo**: Scaricare, parsare e cachare i dati orari di carico elettrico dalla rete ERCOT del Texas.
+**Scopo**: Scaricare, parsare e cachare i dati orari di domanda elettrica dalla rete ERCOT del Texas, tramite la EIA Open Data API v2.
 
 #### Costanti di modulo
 
 ```python
-ERCOT_URLS: Dict[int, str]
-```
-
-**Cosa**: Dizionario che mappa anno → URL del file ZIP sul sito ERCOT.
-
-**Perche' cosi'**: ERCOT non fornisce un'API; i dati sono pubblicati come file ZIP contenenti fogli Excel. Gli URL cambiano a ogni pubblicazione annuale, quindi centralizzarli in un dizionario facilita l'aggiornamento. Sono hardcoded (e non in config) perche' sono intrinsecamente legati alla struttura del sito ERCOT e non sono parametri utente.
-
-```python
+EIA_API_URL = "https://api.eia.gov/v2/electricity/rto/region-data/data/"
+EIA_PAGE_SIZE = 5000
+MIN_YEAR = 2015
 TARGET_COLUMN = "ERCOT"
 ```
 
-**Cosa**: Nome della colonna che contiene il carico totale del sistema.
+**Cosa**: `EIA_API_URL` e' l'endpoint dell'API EIA per i dati regionali di domanda oraria. `EIA_PAGE_SIZE` e' il numero massimo di righe per richiesta API (limite imposto dall'EIA). `MIN_YEAR` e' il primo anno con dati RTO disponibili. `TARGET_COLUMN` e' il nome assegnato alla colonna di output.
 
-**Perche' cosi'**: I file ERCOT contengono sia il totale di sistema (`ERCOT`) sia le singole zone (`COAST`, `EAST`, ecc.). Per il benchmark usiamo il totale, ma la colonna e' configurabile nel costruttore per permettere analisi per zona.
+**Perche' cosi'**: L'EIA (U.S. Energy Information Administration) fornisce un'API pubblica e gratuita per accedere ai dati energetici, inclusa la domanda oraria di ERCOT. Questo approccio sostituisce il download diretto di file ZIP dal sito ERCOT, che blocca le richieste automatizzate con un WAF (Web Application Firewall). L'API EIA e' stabile, documentata e accessibile con una chiave `DEMO_KEY` (rate-limited) o con una chiave gratuita registrata.
 
 ---
 
 #### `class ERCOTLoader`
 
 ```python
-def __init__(self, years, data_dir, target_column, timeout)
+def __init__(self, years, data_dir, target_column, api_key, timeout)
 ```
 
-**Cosa fa**: Inizializza il loader validando che gli anni richiesti abbiano un URL noto.
+**Cosa fa**: Inizializza il loader validando che gli anni richiesti siano >= `MIN_YEAR` (2015).
 
-**Come lo fa**: Confronta `set(years)` con `set(ERCOT_URLS.keys())` e solleva `ValueError` immediatamente se ci sono anni non supportati.
+**Come lo fa**: Controlla che nessun anno sia precedente al 2015 e solleva `ValueError` se necessario. La chiave API viene cercata in ordine: parametro esplicito, variabile d'ambiente `EIA_API_KEY`, fallback a `"DEMO_KEY"`.
 
-**Perche' cosi'**: Fail-fast: meglio fallire alla costruzione che durante un download lungo. Il `data_dir` e' un `Path` per compatibilita' cross-platform. Il timeout di default e' 120s perche' i file ERCOT pesano 1-2 MB e la rete ERCOT puo' essere lenta.
+**Perche' cosi'**: Fail-fast: meglio fallire alla costruzione che durante una sequenza di chiamate API. La chiave `DEMO_KEY` funziona immediatamente senza registrazione (limite ~30 richieste/ora). Per uso intensivo, basta impostare la variabile d'ambiente `EIA_API_KEY` con una chiave gratuita ottenuta da https://www.eia.gov/opendata/register.php.
 
 ---
 
@@ -119,7 +114,7 @@ def __init__(self, years, data_dir, target_column, timeout)
 3. Rimuove timestamp duplicati (possibili durante le transizioni DST).
 4. Estrae la colonna target e la rinomina `"load_mw"`.
 
-**Perche' cosi'**: La concatenazione anno per anno permette il caching granulare — se un anno e' gia' scaricato, non viene riscaricato. La deduplicazione dei timestamp e' necessaria perche' ERCOT include talvolta righe duplicate durante il passaggio ora legale/solare.
+**Perche' cosi'**: La concatenazione anno per anno permette il caching granulare — se un anno e' gia' stato scaricato dall'API, non viene riscaricato. La deduplicazione dei timestamp gestisce eventuali sovrapposizioni ai confini tra anni.
 
 ---
 
@@ -140,88 +135,29 @@ I default (`train_end="2022-12-31"`, `val_end="2023-06-30"`) danno:
 
 #### `ERCOTLoader._load_year(year, force_download) -> pd.DataFrame`
 
-**Cosa fa**: Carica i dati di un singolo anno, scaricandoli se non sono gia' in cache.
+**Cosa fa**: Carica i dati di un singolo anno, interrogando l'API EIA se non sono gia' in cache.
 
 **Come lo fa**:
 1. Cerca un file Parquet locale (`ercot_{year}.parquet`).
 2. Se esiste e `force_download=False`, lo legge direttamente.
-3. Altrimenti scarica il ZIP, lo parsa e salva il risultato in Parquet.
+3. Altrimenti chiama `_fetch_year()` e salva il risultato in Parquet.
 
-**Perche' cosi'**: Parquet e' ~10x piu' veloce da leggere rispetto a Excel e ~5x piu' compatto. Dopo il primo download i caricamenti successivi sono istantanei. Questo e' critico nei notebook Colab dove si riesegue spesso la cella.
-
----
-
-#### `ERCOTLoader._download_zip(year) -> bytes`
-
-**Cosa fa**: Scarica il file ZIP da ERCOT via HTTP.
-
-**Come lo fa**: `requests.get()` con timeout configurabile. Solleva eccezione HTTP automaticamente con `raise_for_status()`.
-
-**Perche' cosi'**: `requests` e' la libreria standard de facto per HTTP in Python. Il timeout evita che il processo si blocchi indefinitamente se il server ERCOT non risponde. Restituiamo `bytes` (non salviamo il ZIP su disco) perche' il file e' piccolo (~1-2 MB) e lo parsiamo immediatamente in memoria.
+**Perche' cosi'**: Parquet e' compatto e velocissimo da leggere. Dopo il primo fetch dall'API, i caricamenti successivi sono istantanei. Questo e' critico sia nei notebook Colab (dove si riesegue spesso la cella) sia per evitare di esaurire il rate limit dell'API con `DEMO_KEY`.
 
 ---
 
-#### `ERCOTLoader._parse_zip(zip_bytes, year) -> pd.DataFrame`
+#### `ERCOTLoader._fetch_year(year) -> pd.DataFrame`
 
-**Cosa fa**: Estrae il file Excel/CSV dal ZIP e lo converte in DataFrame.
+**Cosa fa**: Scarica un anno intero di dati di domanda oraria ERCOT dall'API EIA, gestendo la paginazione automaticamente.
 
 **Come lo fa**:
-1. Apre il ZIP in memoria con `zipfile.ZipFile(io.BytesIO(...))`.
-2. Trova il file dati con `_find_data_file()`.
-3. Legge con `pd.read_excel()` o `pd.read_csv()` a seconda dell'estensione.
-4. Normalizza colonne e timestamp con `_normalise_columns()`.
+1. Costruisce i parametri della query: `respondent=ERCO`, `type=D` (Demand), intervallo `start/end` per l'anno.
+2. Effettua richieste paginate (max 5000 righe per pagina) finche' non ha tutti i dati.
+3. Converte il JSON di risposta in DataFrame con DatetimeIndex.
+4. Converte la colonna `value` (stringa) in numerico, rinominandola in `ERCOT`.
+5. Rimuove NaN e ordina per timestamp.
 
-**Perche' cosi'**: Elaboriamo tutto in memoria (no file temporanei su disco) per semplicita' e compatibilita' con ambienti read-only. Il supporto sia Excel che CSV copre le variazioni tra anni diversi — ERCOT ha cambiato formato piu' volte.
-
----
-
-#### `ERCOTLoader._find_data_file(names) -> str`
-
-**Cosa fa**: Seleziona il file dati principale dalla lista dei contenuti del ZIP.
-
-**Come lo fa**: Itera sui nomi dei file, salta quelli nascosti (`__`, `.`), e restituisce il primo con estensione `.xlsx`, `.xls` o `.csv`.
-
-**Perche' cosi'**: I ZIP di ERCOT talvolta contengono file di metadata (`__MACOSX/`, `.DS_Store`). Questo filtro euristico li esclude. Solleva `FileNotFoundError` con la lista completa se non trova nulla — utile per il debug.
-
----
-
-#### `ERCOTLoader._normalise_columns(df, year) -> pd.DataFrame`
-
-**Cosa fa**: Standardizza i nomi delle colonne, parsa i timestamp e imposta il DatetimeIndex.
-
-**Come lo fa**:
-1. Rimuove spazi bianchi dai nomi colonna (`str.strip()`).
-2. Identifica la colonna timestamp con `_find_timestamp_column()`.
-3. Parsa i timestamp con `_parse_ercot_timestamps()`.
-4. Seleziona solo le colonne numeriche (carico per zona).
-5. Rimuove righe con NaN nella colonna target.
-
-**Perche' cosi'**: ERCOT non e' consistente nei nomi delle colonne tra un anno e l'altro (es. `"Hour_Ending"` vs `"Hour Ending"`). La normalizzazione rende il codice robusto a queste variazioni. Il filtro `dtype.kind in "ifc"` (int, float, complex) seleziona automaticamente le colonne numeriche senza hardcodare nomi di zona.
-
----
-
-#### `ERCOTLoader._find_timestamp_column(columns) -> str`
-
-**Cosa fa**: Identifica euristicamente la colonna che contiene i timestamp.
-
-**Come lo fa**: Confronta i nomi delle colonne (case-insensitive) con una lista di candidati noti. Fallback: prima colonna.
-
-**Perche' cosi'**: ERCOT ha usato almeno 4 nomi diversi per questa colonna nel corso degli anni. Il match case-insensitive gestisce tutte le varianti.
-
----
-
-#### `ERCOTLoader._parse_ercot_timestamps(raw) -> pd.DatetimeIndex`
-
-**Cosa fa**: Converte le stringhe timestamp ERCOT in un `DatetimeIndex` pandas.
-
-**Come lo fa**:
-1. Rimuove suffissi `" DST"` con regex.
-2. Identifica le righe con `"24:00"` (mezzanotte nel formato ERCOT).
-3. Sostituisce `"24:00"` con `"00:00"` per renderlo parsabile.
-4. Parsa con `pd.to_datetime(format="mixed")`.
-5. Aggiunge 1 giorno dove c'era `"24:00"`.
-
-**Perche' cosi'**: ERCOT usa la convenzione "Hour Ending" dove `"24:00"` indica la mezzanotte del giorno successivo. `pandas.to_datetime` non accetta `"24:00"` come ora valida, quindi serve la sostituzione manuale. Il flag `" DST"` che ERCOT aggiunge durante l'ora legale causerebbe errori di parsing — lo rimuoviamo preventivamente.
+**Perche' cosi'**: L'API EIA restituisce al massimo 5000 righe per richiesta, ma un anno ha ~8760 ore. La paginazione con `offset` e' necessaria per ottenere tutti i dati. I valori sono restituiti come stringhe dall'API, quindi la conversione con `pd.to_numeric(errors="coerce")` gestisce eventuali valori non numerici in modo robusto. Se l'API non restituisce dati, viene sollevato un `RuntimeError` informativo.
 
 ---
 

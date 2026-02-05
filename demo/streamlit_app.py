@@ -122,7 +122,10 @@ with tab_data:
     except Exception as e:
         st.error(
             f"Could not load data: {e}\n\n"
-            "Run `python scripts/download_data.py` first to download ERCOT data."
+            "Run `python scripts/download_data.py` to fetch ERCOT data from the "
+            "EIA Open Data API.  If you hit rate limits with the default DEMO_KEY, "
+            "set the `EIA_API_KEY` environment variable with your free key from "
+            "https://www.eia.gov/opendata/register.php"
         )
 
 # ---- Tab 2: Run Benchmark ------------------------------------------------

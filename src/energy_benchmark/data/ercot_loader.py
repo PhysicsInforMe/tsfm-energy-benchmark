@@ -1,44 +1,50 @@
-"""ERCOT hourly load data downloader and parser.
+"""ERCOT hourly load data loader via EIA Open Data API.
 
-Downloads historical hourly load data from ERCOT (Electric Reliability Council
-of Texas) and produces a clean pandas Series with DatetimeIndex.
+Retrieves historical hourly demand data for ERCOT (Electric Reliability Council
+of Texas) from the U.S. Energy Information Administration (EIA) Open Data API v2.
+
+The EIA API is free and publicly accessible.  A ``DEMO_KEY`` works out of the
+box (rate-limited to ~30 req/hour).  For heavier usage, obtain a free key at
+https://www.eia.gov/opendata/register.php and set the ``EIA_API_KEY``
+environment variable.
+
+API docs: https://www.eia.gov/opendata/documentation.php
 """
 
 from __future__ import annotations
 
-import io
 import logging
-import zipfile
+import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 import requests
 
 logger = logging.getLogger(__name__)
 
-# Known download URLs for ERCOT native load data (ZIP files containing Excel).
-# These may change when ERCOT reorganises its website; update as needed.
-ERCOT_URLS: Dict[int, str] = {
-    2024: "https://www.ercot.com/files/docs/2025/01/10/Native_Load_2024.zip",
-    2023: "https://www.ercot.com/files/docs/2024/01/08/Native_Load_2023.zip",
-    2022: "https://www.ercot.com/files/docs/2023/01/31/Native_Load_2022.zip",
-    2021: "https://www.ercot.com/files/docs/2022/01/07/Native_Load_2021.zip",
-    2020: "https://www.ercot.com/files/docs/2021/01/12/Native_Load_2020.zip",
-}
+# EIA API v2 endpoint for Regional Electricity Data (hourly demand)
+EIA_API_URL = "https://api.eia.gov/v2/electricity/rto/region-data/data/"
 
-# Default target column (total ERCOT system load)
+# Maximum rows the API returns per request
+EIA_PAGE_SIZE = 5000
+
+# EIA RTO hourly data is available from ~2015 onwards
+MIN_YEAR = 2015
+
+# Default target column name (for compatibility with rest of codebase)
 TARGET_COLUMN = "ERCOT"
 
 
 class ERCOTLoader:
-    """Download, cache and parse ERCOT hourly load data.
+    """Load ERCOT hourly demand data via the EIA Open Data API.
 
     Args:
-        years: List of years to include. Defaults to 2020-2024.
-        data_dir: Directory for caching downloaded files.
-        target_column: Column to extract as the target series.
+        years: List of years to include.  Defaults to 2020-2024.
+        data_dir: Directory for caching downloaded data as parquet files.
+        target_column: Name for the target column in the output DataFrame.
+        api_key: EIA API key.  Falls back to env var ``EIA_API_KEY``,
+                 then to ``DEMO_KEY`` (rate-limited).
         timeout: HTTP request timeout in seconds.
     """
 
@@ -47,19 +53,20 @@ class ERCOTLoader:
         years: Optional[List[int]] = None,
         data_dir: str | Path = "data/raw",
         target_column: str = TARGET_COLUMN,
+        api_key: Optional[str] = None,
         timeout: int = 120,
     ) -> None:
         self.years = years or list(range(2020, 2025))
         self.data_dir = Path(data_dir)
         self.target_column = target_column
+        self.api_key = api_key or os.environ.get("EIA_API_KEY", "DEMO_KEY")
         self.timeout = timeout
 
-        # Validate requested years
-        unsupported = set(self.years) - set(ERCOT_URLS.keys())
+        unsupported = [y for y in self.years if y < MIN_YEAR]
         if unsupported:
             raise ValueError(
-                f"No known URL for year(s): {sorted(unsupported)}. "
-                f"Supported years: {sorted(ERCOT_URLS.keys())}"
+                f"EIA RTO data is not available before {MIN_YEAR}. "
+                f"Unsupported year(s): {sorted(unsupported)}"
             )
 
     # ------------------------------------------------------------------
@@ -67,14 +74,15 @@ class ERCOTLoader:
     # ------------------------------------------------------------------
 
     def load(self, force_download: bool = False) -> pd.Series:
-        """Download (if needed) and return the full hourly load series.
+        """Fetch (if not cached) and return the full hourly load series.
 
         Args:
-            force_download: Re-download even if cached files exist.
+            force_download: Re-fetch from the API even if a local parquet
+                            cache already exists.
 
         Returns:
             A pandas Series with DatetimeIndex (hourly frequency) containing
-            system load in MW for the requested years, sorted chronologically.
+            system demand in MW for the requested years, sorted chronologically.
         """
         frames: list[pd.DataFrame] = []
         for year in sorted(self.years):
@@ -84,7 +92,7 @@ class ERCOTLoader:
         combined = pd.concat(frames, axis=0)
         combined = combined.sort_index()
 
-        # Remove any duplicate timestamps (DST transitions can cause this)
+        # Remove duplicate timestamps (rare, but possible at year boundaries)
         combined = combined[~combined.index.duplicated(keep="first")]
 
         series = combined[self.target_column].rename("load_mw")
@@ -136,16 +144,15 @@ class ERCOTLoader:
     def _load_year(
         self, year: int, force_download: bool = False
     ) -> pd.DataFrame:
-        """Load a single year, downloading the ZIP if necessary."""
+        """Load a single year, fetching from the API if not cached."""
         cache_path = self.data_dir / f"ercot_{year}.parquet"
 
         if cache_path.exists() and not force_download:
             logger.debug("Loading cached data for %d", year)
             return pd.read_parquet(cache_path)
 
-        # Download and parse
-        zip_bytes = self._download_zip(year)
-        df = self._parse_zip(zip_bytes, year)
+        # Fetch from API
+        df = self._fetch_year(year)
 
         # Cache as parquet for fast subsequent loads
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -154,132 +161,74 @@ class ERCOTLoader:
 
         return df
 
-    def _download_zip(self, year: int) -> bytes:
-        """Download the ZIP file for a given year from ERCOT."""
-        url = ERCOT_URLS[year]
-        logger.info("Downloading ERCOT %d data from %s", year, url)
+    def _fetch_year(self, year: int) -> pd.DataFrame:
+        """Fetch one year of hourly demand data from the EIA API.
 
-        response = requests.get(url, timeout=self.timeout)
-        response.raise_for_status()
-
-        logger.info(
-            "Downloaded %.1f MB for %d",
-            len(response.content) / 1e6,
-            year,
-        )
-        return response.content
-
-    def _parse_zip(self, zip_bytes: bytes, year: int) -> pd.DataFrame:
-        """Extract and parse the Excel/CSV file inside the ERCOT ZIP.
-
-        ERCOT ZIP files typically contain a single Excel file with columns:
-        - ``Hour_Ending`` (timestamp string like "01/01/2024 01:00")
-        - ``COAST``, ``EAST``, ``FAR_WEST``, ... (zone loads)
-        - ``ERCOT`` (total system load)
+        Handles pagination automatically (the API returns at most 5 000
+        rows per request; a full year has ~8 760 rows).
         """
-        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-            # Find the data file inside the ZIP
-            names = zf.namelist()
-            data_file = self._find_data_file(names)
-            logger.debug("Parsing %s from ZIP", data_file)
+        start = f"{year}-01-01T00"
+        end = f"{year}-12-31T23"
 
-            with zf.open(data_file) as f:
-                content = io.BytesIO(f.read())
-                if data_file.endswith((".xlsx", ".xls")):
-                    df = pd.read_excel(content)
-                else:
-                    df = pd.read_csv(content)
+        all_rows: list[dict] = []
+        offset = 0
 
-        df = self._normalise_columns(df, year)
-        return df
+        while True:
+            params = {
+                "frequency": "hourly",
+                "data[0]": "value",
+                "facets[respondent][]": "ERCO",
+                "facets[type][]": "D",
+                "start": start,
+                "end": end,
+                "sort[0][column]": "period",
+                "sort[0][direction]": "asc",
+                "offset": offset,
+                "length": EIA_PAGE_SIZE,
+                "api_key": self.api_key,
+            }
 
-    @staticmethod
-    def _find_data_file(names: List[str]) -> str:
-        """Pick the main data file from a list of ZIP entry names."""
-        for name in names:
-            lower = name.lower()
-            # Skip hidden/metadata files
-            if lower.startswith("__") or lower.startswith("."):
-                continue
-            if lower.endswith((".xlsx", ".xls", ".csv")):
-                return name
-        raise FileNotFoundError(
-            f"No Excel/CSV file found in ZIP archive. Contents: {names}"
+            logger.info(
+                "Fetching ERCOT %d data from EIA API (offset=%d)", year, offset
+            )
+
+            response = requests.get(
+                EIA_API_URL, params=params, timeout=self.timeout
+            )
+            response.raise_for_status()
+
+            payload = response.json()
+            resp_body = payload.get("response", {})
+            data = resp_body.get("data", [])
+            total = resp_body.get("total", 0)
+
+            if not data:
+                break
+
+            all_rows.extend(data)
+            offset += len(data)
+
+            if offset >= total:
+                break
+
+        if not all_rows:
+            raise RuntimeError(
+                f"No data returned from EIA API for ERCOT year {year}. "
+                f"Check your API key and network connection."
+            )
+
+        logger.info("Fetched %d rows for %d", len(all_rows), year)
+
+        # Build DataFrame
+        df = pd.DataFrame(all_rows)
+        timestamps = pd.to_datetime(df["period"])
+        values = pd.to_numeric(df["value"], errors="coerce")
+
+        result = pd.DataFrame(
+            {self.target_column: values.values},
+            index=pd.DatetimeIndex(timestamps, name="timestamp"),
         )
+        result = result.dropna(subset=[self.target_column])
+        result = result.sort_index()
 
-    def _normalise_columns(
-        self, df: pd.DataFrame, year: int
-    ) -> pd.DataFrame:
-        """Normalise column names, parse timestamps, set DatetimeIndex."""
-        # Standardise column names: strip whitespace, uppercase
-        df.columns = df.columns.str.strip()
-
-        # Identify timestamp column (ERCOT uses varying names)
-        ts_col = self._find_timestamp_column(df.columns.tolist())
-
-        # Parse timestamps
-        # ERCOT uses "Hour_Ending" format where "01:00" means the hour
-        # ending at 01:00 (i.e. the 00:00-01:00 interval).
-        # Some years use "24:00" for midnight, which pandas cannot parse
-        # directly — we handle this by replacing "24:00" with "00:00" and
-        # adding one day.
-        ts_raw = df[ts_col].astype(str).str.strip()
-        timestamps = self._parse_ercot_timestamps(ts_raw)
-
-        # Build output dataframe with numeric load columns
-        numeric_cols = [
-            c for c in df.columns if c != ts_col and df[c].dtype.kind in "ifc"
-        ]
-        if self.target_column not in numeric_cols:
-            # Try case-insensitive match
-            mapping = {c.upper(): c for c in numeric_cols}
-            if self.target_column.upper() in mapping:
-                pass  # will work via original column name
-            else:
-                raise KeyError(
-                    f"Target column '{self.target_column}' not found. "
-                    f"Available numeric columns: {numeric_cols}"
-                )
-
-        out = df[numeric_cols].copy()
-        out.index = timestamps
-        out.index.name = "timestamp"
-
-        # Drop rows where target is NaN
-        out = out.dropna(subset=[self.target_column])
-
-        return out
-
-    @staticmethod
-    def _find_timestamp_column(columns: List[str]) -> str:
-        """Heuristically identify the timestamp column."""
-        candidates = ["Hour_Ending", "HourEnding", "Hour Ending", "Datetime"]
-        col_upper = {c.upper(): c for c in columns}
-        for candidate in candidates:
-            if candidate.upper() in col_upper:
-                return col_upper[candidate.upper()]
-        # Fallback: first column
-        return columns[0]
-
-    @staticmethod
-    def _parse_ercot_timestamps(raw: pd.Series) -> pd.DatetimeIndex:
-        """Parse ERCOT's ``Hour_Ending`` strings into a DatetimeIndex.
-
-        Handles the special ``24:00`` hour that ERCOT uses for midnight
-        of the next day.
-        """
-        # Some entries include DST flags like " DST" — strip them
-        cleaned = raw.str.replace(r"\s*DST\s*$", "", regex=True)
-
-        # Handle 24:00 → 00:00 + 1 day
-        has_24 = cleaned.str.contains("24:00")
-
-        # Replace 24:00 with 00:00 for parsing
-        parseable = cleaned.str.replace("24:00", "00:00", regex=False)
-
-        timestamps = pd.to_datetime(parseable, format="mixed", dayfirst=False)
-
-        # Add one day where original was 24:00
-        timestamps = timestamps.where(~has_24, timestamps + pd.Timedelta(days=1))
-
-        return pd.DatetimeIndex(timestamps)
+        return result
