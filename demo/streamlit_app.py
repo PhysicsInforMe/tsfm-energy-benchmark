@@ -177,15 +177,15 @@ def load_data():
     from energy_benchmark.data import ERCOTLoader
     from energy_benchmark.data.preprocessing import preprocess_series
 
-    # Use contiguous years to ensure valid context windows
+    # Load all available years
     data_dir = Path("data/raw")
-    loader = ERCOTLoader(years=[2023, 2024], data_dir=str(data_dir))
+    loader = ERCOTLoader(years=[2020, 2021, 2022, 2023, 2024], data_dir=str(data_dir))
     series = loader.load()
     series = preprocess_series(series)
     train, val, test = loader.split(
         series,
-        train_end="2023-12-31",
-        val_end="2024-03-31",
+        train_end="2022-12-31",
+        val_end="2023-06-30",
     )
     return series, train, val, test
 
