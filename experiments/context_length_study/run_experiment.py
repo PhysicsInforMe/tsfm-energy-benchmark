@@ -56,6 +56,7 @@ MODEL_CONFIGS = [
     ("SARIMA", "arima", {"order": (2, 1, 2), "seasonal_order": (1, 1, 1, 24)}),
     ("Chronos-Bolt", "chronos_bolt", {"model_size": "small", "device": "cpu"}),
     ("Chronos-2", "chronos2", {"device": "cpu"}),
+    ("Lag-Llama", "lag_llama", {"ckpt_path": "lag-llama/lag-llama.ckpt", "device": "cpu"}),
 ]
 
 
@@ -114,6 +115,11 @@ def create_model(model_type: str, config: dict):
     elif model_type == "chronos2":
         from energy_benchmark.models.chronos2 import Chronos2Model
         return Chronos2Model(**config)
+    elif model_type == "lag_llama":
+        import sys
+        sys.path.insert(0, "lag-llama")
+        from energy_benchmark.models.lag_llama import LagLlamaModel
+        return LagLlamaModel(**config)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
