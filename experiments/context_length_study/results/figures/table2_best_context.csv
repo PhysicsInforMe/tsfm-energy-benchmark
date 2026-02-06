@@ -1,0 +1,5 @@
+Model,Best Context,Best MASE,Worst Context,Worst MASE,Improvement %
+Chronos-Bolt,2048,0.315,24,0.549,42.6
+Chronos-2,2048,0.334,48,0.659,49.4
+SARIMA,2048,0.365,24,15.056,97.6
+SeasonalNaive,24,0.591,1024,0.749,21.1

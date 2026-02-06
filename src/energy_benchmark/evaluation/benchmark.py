@@ -58,7 +58,7 @@ class BenchmarkRunner:
     METRIC_FNS = {
         "mae": lambda yt, yp, **kw: M.mae(yt, yp),
         "rmse": lambda yt, yp, **kw: M.rmse(yt, yp),
-        "mase": lambda yt, yp, **kw: M.mase(yt, yp, kw["y_train"], seasonality=24),
+        "mase": lambda yt, yp, **kw: M.mase(yt, yp, kw["y_train"], seasonality=168),
         "crps": lambda yt, yp, **kw: (
             M.crps(yt, kw["samples"]) if kw.get("samples") is not None else float("nan")
         ),
@@ -91,6 +91,7 @@ class BenchmarkRunner:
         train: pd.Series,
         test: pd.Series,
         rolling_config: Optional[Dict[str, Any]] = None,
+        val: Optional[pd.Series] = None,
     ) -> BenchmarkResults:
         """Run the full benchmark.
 
@@ -98,6 +99,9 @@ class BenchmarkRunner:
             train: Training series (used for fitting and MASE scaling).
             test: Test series to evaluate on.
             rolling_config: Dict with keys ``step_size`` and ``num_windows``.
+            val: Optional validation series between train and test. If provided,
+                 it will be included in the context for rolling evaluation to
+                 ensure continuity when there's a gap between train and test.
 
         Returns:
             :class:`BenchmarkResults` with per-window forecasts and
@@ -112,6 +116,12 @@ class BenchmarkRunner:
         results = BenchmarkResults()
         y_train = train.values
 
+        # Build context series: train + optional val (for continuity before test)
+        if val is not None:
+            context_series = pd.concat([train, val])
+        else:
+            context_series = train
+
         for model in self.models:
             if not model._is_fitted:
                 logger.info("Fitting %s...", model.name)
@@ -121,7 +131,7 @@ class BenchmarkRunner:
                 for horizon in self.prediction_horizons:
                     window_metrics = self._evaluate_rolling(
                         model=model,
-                        train=train,
+                        context_series=context_series,
                         test=test,
                         context_length=ctx_len,
                         horizon=horizon,
@@ -159,7 +169,7 @@ class BenchmarkRunner:
     def _evaluate_rolling(
         self,
         model: ForecastModel,
-        train: pd.Series,
+        context_series: pd.Series,
         test: pd.Series,
         context_length: int,
         horizon: int,
@@ -169,8 +179,8 @@ class BenchmarkRunner:
         results: BenchmarkResults,
     ) -> List[Dict[str, float]]:
         """Evaluate a single model on rolling windows."""
-        full_series = pd.concat([train, test])
-        test_start_idx = len(train)
+        full_series = pd.concat([context_series, test])
+        test_start_idx = len(context_series)
         window_metrics: List[Dict[str, float]] = []
 
         max_windows = min(

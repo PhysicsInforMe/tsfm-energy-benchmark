@@ -355,6 +355,7 @@ with tab_benchmark:
                 results = runner.run(
                     train, test,
                     rolling_config={"step_size": 24, "num_windows": num_windows},
+                    val=val,  # include validation set for context continuity
                 )
             progress.progress(100, text="Done!")
 
@@ -438,12 +439,23 @@ with tab_results:
 
         # ---- Example forecasts ----
         st.subheader("Example Forecasts")
-        # Show one forecast per model
-        shown_models = set()
+        st.caption(
+            "Showing the forecast window with **median error** for each model "
+            "(most representative of average performance)."
+        )
+
+        # Group forecasts by model and find the one with median MAE
+        from collections import defaultdict
+        forecasts_by_model = defaultdict(list)
         for fr in results.forecasts:
-            if fr.model_name in shown_models:
-                continue
-            shown_models.add(fr.model_name)
+            mae_val = np.mean(np.abs(fr.actual - fr.point_forecast))
+            forecasts_by_model[fr.model_name].append((mae_val, fr))
+
+        for model_name in forecasts_by_model:
+            # Sort by MAE and pick the median one
+            sorted_frs = sorted(forecasts_by_model[model_name], key=lambda x: x[0])
+            median_idx = len(sorted_frs) // 2
+            mae_val, fr = sorted_frs[median_idx]
 
             fig, ax = plt.subplots(figsize=(12, 4))
             ax.plot(fr.actual, "k-", linewidth=1.5, label="Actual")
@@ -458,7 +470,7 @@ with tab_results:
             mtype = MODEL_REGISTRY.get(fr.model_name, {}).get("type", "")
             tag = "[Foundation]" if mtype == "foundation" else "[Baseline]"
             ax.set_title(
-                f"{fr.model_name} {tag} -- {fr.horizon}h forecast"
+                f"{fr.model_name} {tag} -- {fr.horizon}h forecast (MAE={mae_val:.0f} MW)"
             )
             ax.set_ylabel("Load (MW)")
             ax.set_xlabel("Hour")

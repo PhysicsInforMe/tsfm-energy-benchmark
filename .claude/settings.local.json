@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: scaffold repository and implement ERCOT data loader\n\nSet up project structure \\(pyproject.toml, configs, src/, tests/\\) and\nimplement the core data pipeline: ERCOTLoader with download, parquet\ncaching, timestamp parsing, and train/val/test splitting. Add\npreprocessing utilities, ForecastModel ABC, statistical baselines\n\\(SeasonalNaive, ARIMA\\), evaluation metrics \\(MASE, CRPS, WQL, MAE, RMSE\\),\nand 18 passing unit tests.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add model wrappers, benchmark runner, and visualization\n\n- Chronos-Bolt, Chronos-2, and Lag-Llama wrappers with lazy imports\n- BenchmarkRunner with rolling-window evaluation across models/horizons\n- Visualization: bar charts, heatmaps, probabilistic forecast plots\n- run_benchmark.py CLI script with YAML config support\n- 33 passing tests \\(models mocked for CI without GPU/checkpoints\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add CI workflow and Jupyter notebooks\n\n- GitHub Actions CI: lint \\(ruff\\) + tests on Python 3.10/3.11/3.12\n- 01_data_exploration.ipynb: EDA with seasonal patterns, ACF, boxplots\n- 02_model_comparison.ipynb: full benchmark notebook for Colab\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(pip show:*)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "Bash(python:*)",
+      "Bash(pkill:*)",
+      "Bash(EIA_API_KEY=\"ULG1RBF4k9al16KG1B4jsccrOsLGV2F1TO5hlv9S\" python scripts/download_data.py:*)"
+    ]
+  }
+}
