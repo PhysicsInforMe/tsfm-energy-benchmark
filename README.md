@@ -1,6 +1,6 @@
-# Energy Load Forecasting Benchmark
+# TSFM Energy Benchmark
 
-A rigorous benchmark comparing **Time Series Foundation Models** against **statistical baselines** for electricity demand forecasting on ERCOT data. This project provides a comprehensive evaluation framework suitable for academic publication and industry deployment.
+A multi-dimensional benchmark evaluating **Time Series Foundation Models** for electricity demand forecasting on consumer-grade hardware. This project compares four TSFMs (Chronos-Bolt, Chronos-2, Moirai-2, TTM) against Prophet and statistical baselines using ERCOT data, across accuracy, calibration, robustness, and prescriptive utility dimensions.
 
 ## Key Findings
 
@@ -10,18 +10,20 @@ A rigorous benchmark comparing **Time Series Foundation Models** against **stati
 |-------|-----------|----------------|------|--------------|
 | **Chronos-Bolt** | 0.315 | 0.1s | Foundation Model | Encoder-Decoder |
 | **Chronos-2** | 0.334 | 0.09s | Foundation Model | Encoder-only |
-| **Moirai-2** | 0.436 | 0.03s | Foundation Model | Universal Transformer |
-| **TTM** | 0.737 | 0.003s | Foundation Model | MLP-Mixer |
-| SARIMA | 0.365 | 6.2s | Statistical | Auto-regressive |
-| Seasonal Naive | 0.591 | <0.01s | Baseline | Repetition |
+| **Moirai-2** | 0.307 | 0.025s | Foundation Model | Decoder-only |
+| **TTM** | 0.450 | 0.003s | Foundation Model | MLP-Mixer |
+| Prophet | 0.610 | 0.7s | Industry Baseline | Additive Decomposition |
+| SARIMA | 0.370 | 6.2s | Statistical | Auto-regressive |
+| Seasonal Naive | 0.749 | <0.01s | Baseline | Repetition |
 
 ### Main Insights
 
-- **Foundation models significantly outperform statistical baselines** (p<0.001)
+- **Foundation models achieve 47% lower error** than Seasonal Naive baseline at C=2048h
+- **Pre-trained models have a structural advantage**: Prophet fails at short context (MASE >74 at C=24h) while TSFMs maintain stable accuracy
 - **Longer context improves accuracy** for all models (no saturation up to 2048h)
 - **Foundation models are ~60x faster** than SARIMA on CPU
-- **Uncertainty calibration varies**: Chronos-2 is well-calibrated, Moirai-2 is overconfident, TTM is underconfident
-- **Robustness varies under distribution shift**: COVID period and extreme weather events reveal model weaknesses
+- **Uncertainty calibration varies**: Chronos-2 is well-calibrated (95% coverage), Moirai-2 and Prophet are overconfident (~70% coverage)
+- **Robustness varies under distribution shift**: Winter Storm Uri and holiday periods reveal model weaknesses
 
 ## Models Evaluated
 
@@ -31,8 +33,14 @@ A rigorous benchmark comparing **Time Series Foundation Models** against **stati
 |-------|-------|--------|------------|
 | **Chronos-Bolt** (small) | [Ansari et al. 2024](https://arxiv.org/abs/2403.07815) | Amazon | ~48M |
 | **Chronos-2** | [Ansari et al. 2025](https://arxiv.org/abs/2510.15821) | Amazon | ~120M |
-| **Moirai-2** (small) | [Liu et al. 2025](https://arxiv.org/abs/2511.11698) | Salesforce | ~14M |
+| **Moirai-2** (small) | [Liu et al. 2025](https://arxiv.org/abs/2511.11698) | Salesforce | ~11M |
 | **TinyTimeMixer (TTM)** | [IBM 2024](https://arxiv.org/abs/2401.03955) | IBM | <1M |
+
+### Industry Baseline
+
+| Model | Paper | Source |
+|-------|-------|--------|
+| **Prophet** | [Taylor & Letham 2018](https://peerj.com/preprints/3190/) | Meta |
 
 ### Statistical Baselines
 
@@ -69,8 +77,8 @@ Are probabilistic forecasts well-calibrated? Do 90% prediction intervals contain
 
 ```bash
 # Clone repository
-git clone https://github.com/PhysicsInforMe/energy-load-forecasting-benchmark.git
-cd energy-load-forecasting-benchmark
+git clone https://github.com/PhysicsInforMe/tsfm-energy-benchmark.git
+cd tsfm-energy-benchmark
 
 # Install base dependencies
 pip install -e ".[dev]"
@@ -124,7 +132,7 @@ streamlit run demo/streamlit_app.py
 ## Project Structure
 
 ```
-energy-load-forecasting-benchmark/
+tsfm-energy-benchmark/
 ├── src/energy_benchmark/
 │   ├── data/                    # Data loaders (ERCOT via EIA API)
 │   ├── models/                  # Model wrappers
@@ -193,20 +201,22 @@ See [experiments/context_length_study/README.md](experiments/context_length_stud
 ## Citation
 
 ```bibtex
-@misc{energy-load-forecasting-benchmark,
-  title={Time Series Foundation Models for Energy Load Forecasting:
-         A Comprehensive Benchmark},
+@misc{tsfm-energy-benchmark,
+  title={Time Series Foundation Models for Energy Load Forecasting
+         on Consumer Hardware: A Multi-Dimensional Zero-Shot Benchmark},
   author={Luigi Simeone},
   year={2026},
-  url={https://github.com/PhysicsInforMe/energy-load-forecasting-benchmark}
+  url={https://github.com/PhysicsInforMe/tsfm-energy-benchmark}
 }
 ```
 
 ## References
 
 - Ansari et al. (2024). Chronos: Learning the Language of Time Series. arXiv:2403.07815
-- Woo et al. (2024). Unified Training of Universal Time Series Forecasting Transformers. arXiv:2402.02592
-- IBM Research (2024). Tiny Time Mixers: Fast Pre-trained Models for Time Series Forecasting. arXiv:2401.03955
+- Ansari et al. (2025). Chronos-2: From Univariate to Universal Forecasting. arXiv:2510.15821
+- Liu et al. (2025). Moirai 2.0: When Less Is More for Time Series Forecasting. arXiv:2511.11698
+- Ekambaram et al. (2024). Tiny Time Mixers (TTMs): Fast Pre-trained Models for Enhanced Zero/Few-Shot Forecasting. NeurIPS 2024
+- Taylor & Letham (2018). Forecasting at Scale. The American Statistician 72(1):37-45
 
 ## License
 
@@ -216,3 +226,4 @@ MIT License
 
 - ERCOT data provided by EIA Open Data API
 - Foundation models from Amazon, Salesforce, and IBM Research
+- Prophet from Meta
