@@ -125,7 +125,7 @@ We evaluate seven models spanning three categories: pre-trained foundation model
 
 \textit{Chronos-Bolt} \citep{ansari2024chronos} uses a T5-based encoder-decoder transformer. Time series values are tokenised through scaling and quantisation, and the model is trained with a cross-entropy loss over the token vocabulary. We use the \textit{small} variant (\texttt{amazon/chronos-bolt-small}, $\sim$48M parameters).
 
-\textit{Chronos-2} \citep{ansari2025chronos2} employs an encoder-only architecture with grouped query attention (GQA), supporting univariate, multivariate, and covariate-informed forecasting. Here we use it in univariate zero-shot mode for consistency with the benchmark (\texttt{amazon/chronos-2}, $\sim$46M parameters). GQA reduces the key-value head count, improving inference efficiency while maintaining representational capacity.
+\textit{Chronos-2} \citep{ansari2025chronos2} employs an encoder-only architecture with grouped query attention (GQA), supporting univariate, multivariate, and covariate-informed forecasting. Here we use it in univariate zero-shot mode for consistency with the benchmark (\texttt{amazon/chronos-2}, $\sim$120M parameters). GQA reduces the key-value head count, improving inference efficiency while maintaining representational capacity.
 
 \textit{Moirai-2} \citep{liu2025moirai2} is a decoder-only universal time series forecasting transformer that employs quantile forecasting with multi-token prediction. It is pre-trained on a curated corpus of 36 million time series comprising approximately 295 billion observations, including subsets of the LOTSA dataset \citep{woo2024unified}, KernelSynth data, and anonymised operational telemetry. Compared to Moirai~1.0, Moirai-2 replaces masked-encoder training and mixture-distribution outputs with a simpler decoder-only architecture and quantile loss. We use the \textit{small} variant (\texttt{Salesforce/moirai-2.0-R-small}, $\sim$11M parameters).
 
@@ -518,7 +518,7 @@ This study has several limitations that should be considered when interpreting t
 
 \textit{Consumer hardware constraint.} While the CPU-only evaluation demonstrates accessibility, it excluded potentially strong models (TimesFM, Lag-Llama) that require GPU acceleration. The efficiency rankings would differ on GPU hardware, likely favouring the larger transformer models.
 
-\textit{Smallest model variants.} We use the small variants of Chronos-Bolt (\texttt{amazon/chronos-bolt-small}, $\sim$48M parameters) and Moirai-2 (\texttt{Salesforce/moirai-2.0-R-small}, $\sim$11M parameters), and a single-size Chronos-2 (\texttt{amazon/chronos-2}, $\sim$46M parameters). Larger variants with more parameters may achieve better accuracy and calibration, though at increased computational cost that may exceed consumer hardware capabilities.
+\textit{Smallest model variants.} We use the small variants of Chronos-Bolt (\texttt{amazon/chronos-bolt-small}, $\sim$48M parameters) and Moirai-2 (\texttt{Salesforce/moirai-2.0-R-small}, $\sim$11M parameters), and a single-size Chronos-2 (\texttt{amazon/chronos-2}, $\sim$120M parameters). Larger variants with more parameters may achieve better accuracy and calibration, though at increased computational cost that may exceed consumer hardware capabilities.
 
 %==============================================================================
 \section{Conclusion}

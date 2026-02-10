@@ -30,7 +30,7 @@ A rigorous benchmark comparing **Time Series Foundation Models** against **stati
 | Model | Paper | Source | Parameters |
 |-------|-------|--------|------------|
 | **Chronos-Bolt** (small) | [Ansari et al. 2024](https://arxiv.org/abs/2403.07815) | Amazon | ~48M |
-| **Chronos-2** | [Ansari et al. 2025](https://arxiv.org/abs/2510.15821) | Amazon | ~46M |
+| **Chronos-2** | [Ansari et al. 2025](https://arxiv.org/abs/2510.15821) | Amazon | ~120M |
 | **Moirai-2** (small) | [Liu et al. 2025](https://arxiv.org/abs/2511.11698) | Salesforce | ~14M |
 | **TinyTimeMixer (TTM)** | [IBM 2024](https://arxiv.org/abs/2401.03955) | IBM | <1M |
 
