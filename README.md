@@ -29,9 +29,9 @@ A rigorous benchmark comparing **Time Series Foundation Models** against **stati
 
 | Model | Paper | Source | Parameters |
 |-------|-------|--------|------------|
-| **Chronos-Bolt** | [Ansari et al. 2024](https://arxiv.org/abs/2403.07815) | Amazon | ~200M |
-| **Chronos-2** | [Ansari et al. 2024](https://arxiv.org/abs/2403.07815) | Amazon | ~200M |
-| **Moirai-2** | [Woo et al. 2024](https://arxiv.org/abs/2402.02592) | Salesforce | ~300M |
+| **Chronos-Bolt** (small) | [Ansari et al. 2024](https://arxiv.org/abs/2403.07815) | Amazon | ~48M |
+| **Chronos-2** | [Ansari et al. 2025](https://arxiv.org/abs/2510.15821) | Amazon | ~46M |
+| **Moirai-2** (small) | [Liu et al. 2025](https://arxiv.org/abs/2511.11698) | Salesforce | ~14M |
 | **TinyTimeMixer (TTM)** | [IBM 2024](https://arxiv.org/abs/2401.03955) | IBM | <1M |
 
 ### Statistical Baselines
@@ -69,7 +69,7 @@ Are probabilistic forecasts well-calibrated? Do 90% prediction intervals contain
 
 ```bash
 # Clone repository
-git clone https://github.com/[your-username]/energy-load-forecasting-benchmark.git
+git clone https://github.com/PhysicsInforMe/energy-load-forecasting-benchmark.git
 cd energy-load-forecasting-benchmark
 
 # Install base dependencies
@@ -196,9 +196,9 @@ See [experiments/context_length_study/README.md](experiments/context_length_stud
 @misc{energy-load-forecasting-benchmark,
   title={Time Series Foundation Models for Energy Load Forecasting:
          A Comprehensive Benchmark},
-  author={[Your Name]},
+  author={Luigi Simeone},
   year={2026},
-  url={https://github.com/[your-username]/energy-load-forecasting-benchmark}
+  url={https://github.com/PhysicsInforMe/energy-load-forecasting-benchmark}
 }
 ```
 

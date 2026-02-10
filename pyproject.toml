@@ -39,10 +39,15 @@ dependencies = [
 
 [project.optional-dependencies]
 models = [
-    "chronos-forecasting>=1.4",
+    "chronos-forecasting>=2.2",  # Required for Chronos-2 (Chronos2Pipeline)
     "gluonts>=0.14",
     "pmdarima>=2.0",
     "properscoring>=0.1",
+    "uni2ts>=1.0",      # Required by moirai.py (Moirai-2)
+    "prophet>=1.1",     # Required by Prophet baseline
+    "scipy>=1.11",      # Required by moirai.py (interpolate module)
+    # Note: granite-tsfm (required for TTM) must be installed separately:
+    # pip install git+https://github.com/ibm-granite/granite-tsfm.git
 ]
 dev = [
     "pytest>=7.4",
@@ -53,8 +58,8 @@ dev = [
 all = ["energy-benchmark[models,dev]"]
 
 [project.urls]
-Homepage = "https://github.com/PhysicsInforMe/scientific-prototypes"
-Repository = "https://github.com/PhysicsInforMe/scientific-prototypes"
+Homepage = "https://github.com/PhysicsInforMe/tsfm-energy-benchmark"
+Repository = "https://github.com/PhysicsInforMe/tsfm-energy-benchmark"
 
 [tool.setuptools.packages.find]
 where = ["src"]
