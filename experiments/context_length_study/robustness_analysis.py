@@ -564,6 +564,7 @@ def main():
     # Load foundation models
     model_configs = [
         ("Chronos-Bolt", "chronos_bolt", {"model_size": "small", "device": "cpu"}),
+        ("Chronos-2", "chronos2", {"device": "cpu"}),
         ("Moirai-2", "moirai", {"model_type": "moirai2", "size": "small", "device": "cpu"}),
         ("TTM", "tinytimemixer", {"model_version": "r2", "device": "cpu"}),
         ("Prophet", "prophet", {"weekly_seasonality": True, "daily_seasonality": True}),
@@ -574,6 +575,9 @@ def main():
             if model_type == "chronos_bolt":
                 from energy_benchmark.models.chronos_bolt import ChronosBoltModel
                 model = ChronosBoltModel(**config)
+            elif model_type == "chronos2":
+                from energy_benchmark.models.chronos2 import Chronos2Model
+                model = Chronos2Model(**config)
             elif model_type == "moirai":
                 from energy_benchmark.models.moirai import MoiraiModel
                 model = MoiraiModel(**config)
