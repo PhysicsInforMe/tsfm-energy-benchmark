@@ -15,7 +15,8 @@
       "Bash(python:*)",
       "Bash(pkill:*)",
       "Bash(EIA_API_KEY=\"ULG1RBF4k9al16KG1B4jsccrOsLGV2F1TO5hlv9S\" python scripts/download_data.py:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(git rm:*)"
     ]
   }
 }
