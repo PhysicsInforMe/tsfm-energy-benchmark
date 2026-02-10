@@ -6,6 +6,8 @@ from .chronos_bolt import ChronosBoltModel
 from .chronos2 import Chronos2Model
 from .lag_llama import LagLlamaModel
 from .prophet_model import ProphetModel
+from .moirai import MoiraiModel
+from .tinytimemixer import TinyTimeMixerModel
 
 __all__ = [
     "ForecastModel",
@@ -15,4 +17,6 @@ __all__ = [
     "Chronos2Model",
     "LagLlamaModel",
     "ProphetModel",
+    "MoiraiModel",
+    "TinyTimeMixerModel",
 ]

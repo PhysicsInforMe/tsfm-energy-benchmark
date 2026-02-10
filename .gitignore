@@ -41,4 +41,17 @@ Thumbs.db
 # Environment
 .env
 *.log
+
+# External cloned repositories
 lag-llama/
+granite-tsfm/
+
+# Claude Code artifacts
+.claude/
+
+# Large generated files (can be regenerated)
+*.pdf
+
+# Internal prompts and context files
+context_for_opus.md
+PROMPT_*.md

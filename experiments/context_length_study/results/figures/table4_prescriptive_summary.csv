@@ -1,0 +1,18 @@
+Section,Metric,Value
+Peak Detection,Peak Threshold (MW),"66,719"
+Peak Detection,Max Peak Probability,100.0%
+Peak Detection,Peak Hours Detected,11
+Peak Detection,Max Expected Exceedance (MW),"12,901"
+Demand Response,DR Hours Recommended,12
+Demand Response,Total DR Capacity Used (MWh),"50,285"
+Demand Response,Expected Cost without DR ($),"42,336,774"
+Demand Response,Expected Cost with DR ($),"22,222,611"
+Demand Response,Expected Savings ($),"20,114,163"
+Reserve Planning,Total Fixed Reserve (MWh),"156,380"
+Reserve Planning,Total Probabilistic Reserve (MWh),"55,868"
+Reserve Planning,Average Savings (%),63.8%
+Reserve Planning,Reliability Target,99.9%
+Storage Optimization,Energy Charged (MWh),"1,150"
+Storage Optimization,Energy Discharged (MWh),500
+Storage Optimization,Net Benefit ($),"-19,459"
+Storage Optimization,Forecast Risk Factor,0.020

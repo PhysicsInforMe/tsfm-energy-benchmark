@@ -54,9 +54,11 @@ TEST_PERIODS = [
 MODEL_CONFIGS = [
     ("SeasonalNaive", "seasonal_naive", {"seasonality": 168}),
     ("SARIMA", "arima", {"order": (2, 1, 2), "seasonal_order": (1, 1, 1, 24)}),
+    ("Prophet", "prophet", {"weekly_seasonality": True, "daily_seasonality": True}),
     ("Chronos-Bolt", "chronos_bolt", {"model_size": "small", "device": "cpu"}),
     ("Chronos-2", "chronos2", {"device": "cpu"}),
-    ("Lag-Llama", "lag_llama", {"ckpt_path": "lag-llama/lag-llama.ckpt", "device": "cpu"}),
+    ("Moirai-2", "moirai", {"model_type": "moirai2", "size": "small", "device": "cpu"}),
+    ("TTM", "tinytimemixer", {"model_version": "r2", "device": "cpu"}),
 ]
 
 
@@ -109,12 +111,21 @@ def create_model(model_type: str, config: dict):
     elif model_type == "arima":
         from energy_benchmark.models import ARIMAModel
         return ARIMAModel(**config)
+    elif model_type == "prophet":
+        from energy_benchmark.models.prophet_model import ProphetModel
+        return ProphetModel(**config)
     elif model_type == "chronos_bolt":
         from energy_benchmark.models.chronos_bolt import ChronosBoltModel
         return ChronosBoltModel(**config)
     elif model_type == "chronos2":
         from energy_benchmark.models.chronos2 import Chronos2Model
         return Chronos2Model(**config)
+    elif model_type == "moirai":
+        from energy_benchmark.models.moirai import MoiraiModel
+        return MoiraiModel(**config)
+    elif model_type == "tinytimemixer":
+        from energy_benchmark.models.tinytimemixer import TinyTimeMixerModel
+        return TinyTimeMixerModel(**config)
     elif model_type == "lag_llama":
         import sys
         sys.path.insert(0, "lag-llama")

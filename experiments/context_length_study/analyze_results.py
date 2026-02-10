@@ -34,11 +34,14 @@ plt.rcParams.update({
 COLORS = {
     "Chronos-Bolt": "#2196F3",  # Blue
     "Chronos-2": "#4CAF50",      # Green
+    "Moirai-2": "#9C27B0",       # Purple
+    "TTM": "#E91E63",            # Pink
+    "Prophet": "#00BCD4",        # Cyan
     "SARIMA": "#FF9800",         # Orange
     "SeasonalNaive": "#9E9E9E",  # Gray
 }
 
-MODEL_ORDER = ["Chronos-Bolt", "Chronos-2", "SARIMA", "SeasonalNaive"]
+MODEL_ORDER = ["Chronos-Bolt", "Chronos-2", "Moirai-2", "TTM", "Prophet", "SARIMA", "SeasonalNaive"]
 
 
 def load_results(results_dir: Path) -> pd.DataFrame:

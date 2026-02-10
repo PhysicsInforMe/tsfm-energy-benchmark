@@ -332,6 +332,35 @@ def main():
     except Exception as e:
         print(f"  Could not load Chronos-2: {e}")
 
+    # Load Moirai-2
+    try:
+        from energy_benchmark.models.moirai import MoiraiModel
+        model = MoiraiModel(model_type="moirai2", size="small", device="cpu")
+        model.fit(train)
+        models["Moirai-2"] = model
+        print("  Loaded Moirai-2")
+    except Exception as e:
+        print(f"  Could not load Moirai-2: {e}")
+
+    # Load TinyTimeMixer
+    try:
+        from energy_benchmark.models.tinytimemixer import TinyTimeMixerModel
+        model = TinyTimeMixerModel(model_version="r2", device="cpu")
+        model.fit(train)
+        models["TTM"] = model
+        print("  Loaded TTM")
+    except Exception as e:
+        print(f"  Could not load TTM: {e}")
+
+    # Load Prophet
+    try:
+        from energy_benchmark.models.prophet_model import ProphetModel
+        model = ProphetModel(weekly_seasonality=True, daily_seasonality=True)
+        models["Prophet"] = model
+        print("  Loaded Prophet")
+    except Exception as e:
+        print(f"  Could not load Prophet: {e}")
+
     if not models:
         print("No models loaded!")
         return
